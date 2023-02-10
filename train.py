@@ -38,7 +38,7 @@ dataset_test = dataset_test.map(parse_image).batch(16, drop_remainder=True)
 
 model = Model()
 
-optimizer = tf.optimizers.SGD(learning_rate=1e-6, momentum=0.9)
+optimizer = tf.optimizers.SGD(learning_rate=1e-5, momentum=0.9)
 
 def calc_confidence(map_true, map_pred):
     inter_width = tf.minimum(map_true[:,:,:,0], tf.clip_by_value(map_pred[:,:,:,0], 0, 1))
@@ -48,7 +48,7 @@ def calc_confidence(map_true, map_pred):
     return tf.abs(inter_width*inter_height)/(tf.abs(union_width*union_height) + 1e-6)
 
 best_eval_loss = np.inf
-for epoch in range(10):
+for epoch in range(1000):
     total_loss = 0
     for img_batch, label_batch in tqdm(dataset_train):
         label_batch = tf.reshape(label_batch, (-1,5, 5, 3))
@@ -90,15 +90,16 @@ for epoch in range(10):
         model.save_weights("model.h5")
 
 
-del model
-model.load_weights("model.h5")
+# del model
+# model = Model()
+# model.load_weights("model.h5")
 
 img = cv2.imread(X_train[1])
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 out = model(img[None,:,:,:]/255.).numpy()[0]
 for i in range(5):
     for j in range(5):
-        if out[i][j][0] > 0.7:
+        if out[i][j][0] > 0.5*out.max():
             w = out[i][j][1]
             h = out[i][j][2]
             print(np.int0((j*224/5-(w/2*224), i*224/5-(h/2*224))),np.int0((j*224/5+(w/2*224), i*224/5+(h/2*224))))
@@ -119,7 +120,7 @@ out = model(img[None,:,:,:]/255.).numpy()[0]
 out = np.clip(out, 0, 1)
 for i in range(5):
     for j in range(5):
-        if out[i][j][0] > 0.7:
+        if out[i][j][0] > 0.5*out.max():
             w = out[i][j][1]
             h = out[i][j][2]
             print(np.int0((j*224/5-(w/2*224), i*224/5-(h/2*224))),np.int0((j*224/5+(w/2*224), i*224/5+(h/2*224))))
