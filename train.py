@@ -67,7 +67,7 @@ for epoch in range(10):
         grads = g.gradient(loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
 
-    print(epoch, total_loss)
+    print(f"Training: epoch = {epoch+1}, loss = {total_loss}")
     eval_loss = 0
     for img_batch, label_batch in tqdm(dataset_test):
         label_batch = tf.reshape(label_batch, (-1,5, 5, 3))
@@ -83,14 +83,15 @@ for epoch in range(10):
         loss4 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,2]- out[:,:,:,2])**2)
         loss = (loss1 + loss2 + loss3 + loss4)/out.shape[0]
         eval_loss += loss.numpy()
-    print(f"Evaluation: epoch = {epoch}, loss = {eval_loss}")
+    print(f"Evaluation: epoch = {epoch+1}, loss = {eval_loss}")
     if eval_loss <= best_eval_loss:
         print("New best eval loss")
         best_eval_loss = eval_loss
         model.save_weights("model.h5")
 
 
-
+del model
+model.load_weights("model.h5")
 
 img = cv2.imread(X_train[1])
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)

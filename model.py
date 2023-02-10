@@ -6,7 +6,7 @@ class Model(tf.keras.Model):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.backbone = tf.keras.applications.InceptionV3(include_top=False)
-        self.backbone.trainable = False
+        self.backbone.trainable = True
         self.conn = tf.keras.layers.Dense(4096, activation="leaky_relu")
         self.final = tf.keras.layers.Dense(5*5*3)
 
