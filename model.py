@@ -7,15 +7,24 @@ class Model(tf.keras.Model):
         super().__init__(*args, **kwargs)
         self.backbone = tf.keras.applications.InceptionV3(include_top=False)
         self.backbone.trainable = True
+        for layer in self.backbone.layers:
+            if isinstance(layer, keras.layers.BatchNormalization):
+                print(layer.name)
+                layer.trainable = False
+
         self.conn = tf.keras.layers.Dense(4096, activation="leaky_relu")
-        self.final = tf.keras.layers.Dense(5*5*3)
+        # self.dropout = tf.keras.layers.Dropout(0.1)
+        # self.batchnorm = tf.keras.layers.BatchNormalization()
+        self.final = tf.keras.layers.Dense(5*5*25)
 
     def call(self, x):
         y = self.backbone(x)
         y = tf.reshape(y, (x.shape[0],-1))
         y = self.conn(y)
+        # y = self.batchnorm(y)
+        # y = self.dropout(y)
         y = self.final(y)
-        y = tf.reshape(y, (x.shape[0], 5, 5, 3))
+        y = tf.reshape(y, (x.shape[0], 5, 5, 25))
         return y
 
 
