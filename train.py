@@ -49,7 +49,7 @@ model = Model()
 optimizer = tf.optimizers.SGD(learning_rate=2e-5, momentum=0.1)
 
 def calc_confidence(map_true, map_pred, epoch):
-    if epoch < 100:
+    if epoch < 50:
         inter_width = tf.minimum(map_true[:,:,:,1], tf.clip_by_value(map_pred[:,:,:,1], 0, 1))
         inter_height = tf.minimum(map_true[:,:,:,2], tf.clip_by_value(map_pred[:,:,:,2], 0, 1))
         union_width = tf.maximum(map_true[:,:,:,1], tf.clip_by_value(map_pred[:,:,:,1], 0, 1))
@@ -91,7 +91,7 @@ for epoch in range(500):
         with tf.GradientTape() as g:
             out = model(img_batch)
 
-            confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:])
+            confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:], epoch)
             loss1 = tf.reduce_sum(label_batch[:,:,:,0]*(confidence-out[:,:,:,0])**2)
             loss2 = 0.5*tf.reduce_sum((1-label_batch[:,:,:,0])*(confidence-out[:,:,:,0])**2)
             loss3 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,1]- out[:,:,:,1])**2)
@@ -117,7 +117,7 @@ for epoch in range(500):
         # with tf.GradientTape() as g:
         out = model(img_batch)
 
-        confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:])
+        confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:], epoch)
         loss1 = tf.reduce_sum(label_batch[:,:,:,0]*(confidence-out[:,:,:,0])**2)
         loss2 = 0.5*tf.reduce_sum((1-label_batch[:,:,:,0])*(confidence-out[:,:,:,0])**2)
         loss3 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,1]- out[:,:,:,1])**2)

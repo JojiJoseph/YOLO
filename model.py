@@ -13,7 +13,7 @@ class Model(tf.keras.Model):
                 layer.trainable = False
 
         self.conn = tf.keras.layers.Dense(4096, activation="leaky_relu")
-        # self.dropout = tf.keras.layers.Dropout(0.1)
+        self.dropout = tf.keras.layers.Dropout(0.1)
         # self.batchnorm = tf.keras.layers.BatchNormalization()
         self.final = tf.keras.layers.Dense(5*5*25)
 
@@ -22,7 +22,7 @@ class Model(tf.keras.Model):
         y = tf.reshape(y, (x.shape[0],-1))
         y = self.conn(y)
         # y = self.batchnorm(y)
-        # y = self.dropout(y)
+        y = self.dropout(y)
         y = self.final(y)
         y = tf.reshape(y, (x.shape[0], 5, 5, 25))
         return y
