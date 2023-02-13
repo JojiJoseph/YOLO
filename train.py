@@ -21,8 +21,6 @@ dataset_test_X = tf.data.Dataset.from_tensor_slices(X_test[:])
 dataset_train_y = tf.data.Dataset.from_tensor_slices(y_train[:])
 dataset_test_y = tf.data.Dataset.from_tensor_slices(y_test[:])
 
-# print(X_train[:16]) # exit()
-
 dataset_train = tf.data.Dataset.zip((dataset_train_X, dataset_train_y))
 dataset_test = tf.data.Dataset.zip((dataset_test_X, dataset_test_y))
 
@@ -36,7 +34,6 @@ def parse_image(image_filename, output_map_filename):
     image = tf.io.read_file(image_filename)
     image = tf.io.decode_png(image)
     image = tf.image.convert_image_dtype(image, tf.float32) * 2 - 1
-    # print(image.max().numpy(), image.min().numpy())
     output_map = tf.numpy_function(read_npy_file, [output_map_filename], [tf.float32,])
     return image, output_map
 
@@ -70,14 +67,14 @@ def calc_confidence(map_true, map_pred, epoch):
 
     inter_width = (x1_true < x1_pred).astype(float) * (x2_true - x1_pred) + (x1_true >= x1_pred).astype(float) * (x2_pred - x1_true)
     inter_height = (y1_true < y1_pred).astype(float) * (y2_true - y1_pred) + (y1_true >= y1_pred).astype(float) * (y2_pred - y1_true)
-    # inter_width = ((map_true[:,:,:,2] < map_true[:,:,:,2]) * ) or 
+
     inter_width = tf.clip_by_value(inter_width, 0, 1)
     inter_height = tf.clip_by_value(inter_height, 0, 1)
     inter_area = inter_width * inter_height
     union_area = tf.abs(map_pred[:,:,:,1] * map_pred[:,:,:,2]) + tf.abs(map_true[:,:,:,1] * map_true[:,:,:,2]) - inter_area
     union_area = tf.clip_by_value(union_area, 0, 1)
     iou = tf.abs(inter_area)/(tf.abs(union_area) +    1e-6)
-    # print(iou.shape)
+
     iou = (iou <= 1).astype(float) * iou
     return tf.clip_by_value(iou, 0, 1)
 
@@ -86,7 +83,6 @@ for epoch in range(500):
     total_loss = 0
     for img_batch, label_batch in tqdm(dataset_train):
         label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
-        # orig_map = label_batch[0]
 
         with tf.GradientTape() as g:
             out = model(img_batch)
@@ -98,11 +94,9 @@ for epoch in range(500):
             loss4 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,2]- out[:,:,:,2])**2)
             loss5 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,3]- out[:,:,:,3])**2)
             loss6 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,4]- out[:,:,:,4])**2)
-            # print(tf.reduce_sum((label_batch[:,:,:,3:]- out[:,:,:,3:])**2,axis=-1).shape,label_batch[:,:,:,0:1].shape)
-            loss7 = 1*tf.reduce_sum(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2)
-            # print(label_batch[:,:,:,0:1].shape,label_batch[:,:,:,5:].shape, out[:,:,:,5:].shape ,(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2).shape)
-            loss = (loss1 + loss2 + loss3 + loss4 + loss5  + loss6 + 1*loss7)/out.shape[0]
-            # print('#', loss1.numpy(), loss2.numpy(), loss3.numpy(), loss4.numpy(), loss5.numpy(), loss6.numpy(), loss7.numpy(), loss)
+
+            loss7 = tf.reduce_sum(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2)
+            loss = (loss1 + loss2 + loss3 + loss4 + loss5  + loss6 + loss7)/out.shape[0]
             total_loss += loss.numpy()
         grads = g.gradient(loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -110,11 +104,9 @@ for epoch in range(500):
     print(f"Training: epoch = {epoch+1}, loss = {total_loss}")
     eval_loss = 0
     for img_batch, label_batch in tqdm(dataset_test):
-        # print(label_batch.shape)
-        label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
-        # orig_map = label_batch[0]
 
-        # with tf.GradientTape() as g:
+        label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
+
         out = model(img_batch)
 
         confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:], epoch)
@@ -124,11 +116,8 @@ for epoch in range(500):
         loss4 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,2]- out[:,:,:,2])**2)
         loss5 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,3]- out[:,:,:,3])**2)
         loss6 = 5*tf.reduce_sum(label_batch[:,:,:,0]*(label_batch[:,:,:,4]- out[:,:,:,4])**2)
-        # print(tf.reduce_sum((label_batch[:,:,:,3:]- out[:,:,:,3:])**2,axis=-1).shape,label_batch[:,:,:,0:1].shape)
-        loss7 = 1*tf.reduce_sum(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2)
-        loss = (loss1 + loss2 + loss3 + loss4 + loss5  + loss6 + 1*loss7)/out.shape[0]
-        # print(loss)
-        # total_loss += loss.numpy()
+        loss7 = tf.reduce_sum(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2)
+        loss = (loss1 + loss2 + loss3 + loss4 + loss5  + loss6 + loss7)/out.shape[0]
         eval_loss += loss.numpy()
     print(f"Evaluation: epoch = {epoch+1}, loss = {eval_loss}")
     if eval_loss <= best_eval_loss:
@@ -139,24 +128,16 @@ for epoch in range(500):
     if epoch == 1:
         optimizer = tf.optimizers.Adam(learning_rate=2e-4)
 
-    # if epoch == 10:
-    #     optimizer = tf.optimizers.SGD(learning_rate=2e-3, momentum=0.9)
-
     if epoch == 20:
         optimizer = tf.optimizers.Adam(learning_rate=2e-5)
     if epoch == 50:
         optimizer = tf.optimizers.Adam(learning_rate=2e-6)
-    if epoch == 75:
-        optimizer = tf.optimizers.Adam(learning_rate=2e-6)
 
 
-# del model
-# model = Model()
-# model.load_weights("model.h5")
-
+# To test
 img = cv2.imread(X_train[1])
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-out = model(img[None,:,:,:]/255.).numpy()[0]
+out = model(img[None,:,:,:]/127.5-1).numpy()[0]
 for i in range(5):
     for j in range(5):
         if out[i][j][0] > 0.6:#*out.max():
@@ -166,9 +147,8 @@ for i in range(5):
             y_offset = out[i][j][4]
             category = categories[np.argmax(out[i][j][5:])]
             print(category)
-            print(np.int0((j*224/5-(w/2*224), i*224/5-(h/2*224))),np.int0((j*224/5+(w/2*224), i*224/5+(h/2*224))))
             cv2.rectangle(img, np.int0(((j+x_offset)*224/5-(w/2*224), (i+y_offset)*224/5-(h/2*224))),np.int0(((j+x_offset)*224/5+(w/2*224), (i+y_offset)*224/5+(h/2*224))), (0, 0, 255),4)
-            cv2.putText(img, category, np.int0(((j+0.5)*224/5-(w/2*224), (i+0.5)*224/5-(h/2*224))),cv2.FONT_HERSHEY_COMPLEX,1,(255,0,0))
+            cv2.putText(img, category, np.int0(((j+x_offset)*224/5-(w/2*224), (i+y_offset)*224/5-(h/2*224))),cv2.FONT_HERSHEY_COMPLEX,1,(255,0,0))
 
 plt.imshow(img)
 plt.figure()
@@ -179,7 +159,7 @@ plt.show()
 
 img = cv2.imread(X_test[2])
 img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-out = model(img[None,:,:,:]/255.).numpy()[0]
+out = model(img[None,:,:,:]/127.5-1., training=False).numpy()[0]
 
 out = np.clip(out, 0, 1)
 for i in range(5):
@@ -189,10 +169,8 @@ for i in range(5):
             h = out[i][j][2]
             x_offset = out[i][j][3]
             y_offset = out[i][j][4]
-            print(np.argmax(out[i][j][3:]))
             category = categories[np.argmax(out[i][j][5:])]
             print(category)
-            print(np.int0((j*224/5-(w/2*224), i*224/5-(h/2*224))),np.int0((j*224/5+(w/2*224), i*224/5+(h/2*224))))
             cv2.rectangle(img, np.int0(((j+x_offset)*224/5-(w/2*224), (i+y_offset)*224/5-(h/2*224))),np.int0(((j+x_offset)*224/5+(w/2*224), (i+y_offset)*224/5+(h/2*224))), (0, 0, 255),4)
             cv2.putText(img, category, np.int0(((j+x_offset)*224/5-(w/2*224), (i+0.5)*224/5-(h/2*224))),cv2.FONT_HERSHEY_COMPLEX,1,(255,0,0))
 

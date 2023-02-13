@@ -10,6 +10,8 @@ image_path = []
 output_map_path = []
 
 files  = os.listdir("dataset/Annotations")
+os.makedirs("dataset/OutputMap",exist_ok=True)
+os.makedirs("dataset/Preprocessed",exist_ok=True)
 
 import matplotlib.pyplot as plt
 
@@ -33,7 +35,6 @@ for filename in tqdm(files):
             category = categories.index(object.find('name').text)
             for child in object:
                 if child.tag == "bndbox":
-                    # print(child.find('xmin').text)
                     xmin = int(child.find('xmin').text)
                     xmax = int(child.find('xmax').text)
                     ymin = int(child.find('ymin').text)
@@ -45,11 +46,7 @@ for filename in tqdm(files):
                     objmap[int(ymid*5/height)][int(xmid*5/width)][2] = (ymax-ymin)/height
                     objmap[int(ymid*5/height)][int(xmid*5/width)][3] = xmid*5/width - int(xmid*5/width)
                     objmap[int(ymid*5/height)][int(xmid*5/width)][4] = ymid*5/height - int(ymid*5/height)
-                    # print(category)
                     objmap[int(ymid*5/height)][int(xmid*5/width)][5 + category] = 1 
-                    # print(objmap[int(ymid*5/height)][int(xmid*5/width)])
-                    # cv2.rectangle(img, (xmin, ymin), (xmax, ymax), (0,0,255),2)
-        # cv2.imwrite(os.path.join("dataset/Preprocessed", part_name + ".png"),cv2.resize(img_out, (224, 224)))
         Image.fromarray(cv2.resize(img_out, (224, 224))).save(os.path.join("dataset/Preprocessed", part_name + ".png"))
         np.save(os.path.join("dataset/OutputMap", part_name + ".npy"),np.array(objmap))
         # print(np.array(objectmap).shape)
