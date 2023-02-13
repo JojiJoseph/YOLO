@@ -12,7 +12,7 @@ It's my attempt to implement [yolo v1](https://arxiv.org/abs/1506.02640) from sc
 
  - Run `python3 train.py` for training the model.
 
- - Run `python3 demo.py` to see realtime demo with a webcam.
+ - Run `python3 demo.py` to see realtime demo with a webcam. (You can download the weights from https://github.com/JojiJoseph/YOLO/releases/download/v0.0.0-alpha/model.h5 if you don't want to train it from scratch.)
 
 ## Changes from the paper
 
