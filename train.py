@@ -38,7 +38,7 @@ def parse_image(image_filename, output_map_filename):
     return image, output_map
 
 
-dataset_train = dataset_train.map(parse_image).batch(16, drop_remainder=True)
+dataset_train = dataset_train.map(parse_image).shuffle(64).batch(16, drop_remainder=True)
 dataset_test = dataset_test.map(parse_image).batch(16, drop_remainder=True)
 
 model = Model()
@@ -46,7 +46,7 @@ model = Model()
 optimizer = tf.optimizers.SGD(learning_rate=2e-5, momentum=0.1)
 
 def calc_confidence(map_true, map_pred, epoch):
-    if epoch < 50:
+    if False:
         inter_width = tf.minimum(map_true[:,:,:,1], tf.clip_by_value(map_pred[:,:,:,1], 0, 1))
         inter_height = tf.minimum(map_true[:,:,:,2], tf.clip_by_value(map_pred[:,:,:,2], 0, 1))
         union_width = tf.maximum(map_true[:,:,:,1], tf.clip_by_value(map_pred[:,:,:,1], 0, 1))
@@ -54,8 +54,10 @@ def calc_confidence(map_true, map_pred, epoch):
         iou = inter_width* inter_height / (union_width * union_height + 1e-6)
         iou = tf.clip_by_value(iou, 0, 1)
         return iou
-    scale_matrix_x = np.matrix([[0, 1,2,3,4]]*5)
+    scale_matrix_x = np.array([[0, 1,2,3,4]]*5)
     scale_matrix_y = scale_matrix_x.T
+    # print(scale_matrix_x/5, scale_matrix_y/5)
+    # print((scale_matrix_x/5).shape, (map_true[:,:,:,3]/5).shape)
     x1_true = scale_matrix_x/5 + map_true[:,:,:,3]/5 - map_true[:,:,:,1]/2
     x1_pred = scale_matrix_x/5 + map_pred[:,:,:,3]/5 - map_pred[:,:,:,1]/2
     x2_true = scale_matrix_x/5 + map_true[:,:,:,3]/5 + map_true[:,:,:,1]/2
@@ -65,21 +67,25 @@ def calc_confidence(map_true, map_pred, epoch):
     y2_true = scale_matrix_y/5 + map_true[:,:,:,4]/5 + map_true[:,:,:,2]/2
     y2_pred = scale_matrix_y/5 + map_pred[:,:,:,4]/5 + map_pred[:,:,:,2]/2
 
-    inter_width = (x1_true < x1_pred).astype(float) * (x2_true - x1_pred) + (x1_true >= x1_pred).astype(float) * (x2_pred - x1_true)
-    inter_height = (y1_true < y1_pred).astype(float) * (y2_true - y1_pred) + (y1_true >= y1_pred).astype(float) * (y2_pred - y1_true)
-
-    inter_width = tf.clip_by_value(inter_width, 0, 1)
-    inter_height = tf.clip_by_value(inter_height, 0, 1)
+    # inter_width = (x1_true < x1_pred).astype(float) * (x2_true - x1_pred) + (x1_true >= x1_pred).astype(float) * (x2_pred - x1_true)
+    # inter_height = (y1_true < y1_pred).astype(float) * (y2_true - y1_pred) + (y1_true >= y1_pred).astype(float) * (y2_pred - y1_true)
+    inter_width = tf.maximum(0, tf.minimum(x2_true, x2_pred)) - tf.maximum(x1_true, x1_pred)
+    inter_height = tf.maximum(0, tf.minimum(y2_true, y2_pred)) - tf.maximum(y1_true, y1_pred)
+    # inter_width = tf.clip_by_value(inter_width, 0, 1)
+    # inter_height = tf.clip_by_value(inter_height, 0, 1)
     inter_area = inter_width * inter_height
-    union_area = tf.abs(map_pred[:,:,:,1] * map_pred[:,:,:,2]) + tf.abs(map_true[:,:,:,1] * map_true[:,:,:,2]) - inter_area
-    union_area = tf.clip_by_value(union_area, 0, 1)
-    iou = tf.abs(inter_area)/(tf.abs(union_area) +    1e-6)
+    union_area = (x2_true - x1_true) * (y2_true - y1_true) + (x2_pred-x1_pred) * (y2_pred - y1_pred) - inter_area
+    # union_area = tf.abs(map_pred[:,:,:,1] * map_pred[:,:,:,2]) + tf.abs(map_true[:,:,:,1] * map_true[:,:,:,2]) - inter_area
+    # union_area = tf.clip_by_value(union_area, 0, 1)
+    iou = inter_area/(tf.abs(union_area) +    1e-6)
 
     iou = (iou <= 1).astype(float) * iou
-    return tf.clip_by_value(iou, 0, 1)
+    iou = ( 0 <= iou).astype(float) * iou
+    # return tf.clip_by_value(iou, -2, 2) # To avoid initial gradient explosion
+    return iou
 
 best_eval_loss = np.inf
-for epoch in range(500):
+for epoch in range(200):
     total_loss = 0
     for img_batch, label_batch in tqdm(dataset_train):
         label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
@@ -97,6 +103,7 @@ for epoch in range(500):
 
             loss7 = tf.reduce_sum(label_batch[:,:,:,0:1]*(label_batch[:,:,:,5:]- out[:,:,:,5:])**2)
             loss = (loss1 + loss2 + loss3 + loss4 + loss5  + loss6 + loss7)/out.shape[0]
+            # print(loss)
             total_loss += loss.numpy()
         grads = g.gradient(loss, model.trainable_weights)
         optimizer.apply_gradients(zip(grads, model.trainable_weights))
@@ -107,7 +114,7 @@ for epoch in range(500):
 
         label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
 
-        out = model(img_batch)
+        out = model(img_batch, training=False)
 
         confidence = calc_confidence(label_batch[:,:,:,:],out[:,:,:,:], epoch)
         loss1 = tf.reduce_sum(label_batch[:,:,:,0]*(confidence-out[:,:,:,0])**2)
