@@ -23,10 +23,10 @@ while True:
     out = model(processed_frame[None,...].astype(float)/127.5-1, training=False)[0].numpy()
     height, width, _ = frame.shape
     # print(out[:,:,0].max())
-    cv2.imshow("in", frame)
+    # cv2.imshow("in", frame)
     for i in range(5):
         for j in range(5):
-            if out[i][j][0] >=  0.7:# * out[:,:,0].max() and out[:,:,0].max()>0.3:
+            if out[i][j][0] >=  0.9 * out[:,:,0].max():# and out[:,:,0].max()>0.3:
                 w = out[i][j][1]
                 h = out[i][j][2]
                 x_offset = out[i][j][3]

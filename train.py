@@ -85,7 +85,7 @@ def calc_confidence(map_true, map_pred, epoch):
     return iou
 
 best_eval_loss = np.inf
-for epoch in range(200):
+for epoch in range(100):
     total_loss = 0
     for img_batch, label_batch in tqdm(dataset_train):
         label_batch = tf.reshape(label_batch, (-1,5, 5, 25))
@@ -137,8 +137,8 @@ for epoch in range(200):
 
     if epoch == 20:
         optimizer = tf.optimizers.Adam(learning_rate=2e-5)
-    if epoch == 50:
-        optimizer = tf.optimizers.Adam(learning_rate=2e-6)
+    # if epoch == 50:
+    #     optimizer = tf.optimizers.Adam(learning_rate=2e-6)
 
 
 # To test

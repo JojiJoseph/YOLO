@@ -11,9 +11,9 @@ class Model(tf.keras.Model):
         for layer in self.backbone.layers:
             if isinstance(layer, keras.layers.BatchNormalization):
                 print(layer.name)
-                # layer.trainable = False
+                layer.trainable = False
         self.conn = tf.keras.layers.Dense(4096, activation="leaky_relu")
-        self.dropout = tf.keras.layers.Dropout(0.5)
+        self.dropout = tf.keras.layers.Dropout(0.1)
         self.final = tf.keras.layers.Dense(5*5*25)
 
     def call(self, x):
